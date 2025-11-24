@@ -77,7 +77,7 @@ function getRegData() {
         <td>${data.mobile}</td>
         <td>${data.password}</td>
         <td>
-          <button index="${index}" class="edit-btn btn p-1 px-2 btn-primary">
+          <button data="${finalData}" index="${index}" class="edit-btn btn p-1 px-2 btn-primary">
             <i class="fa fa-edit"></i>
           </button>
           <button index="${index}" class="del-btn btn p-1 px-2 btn-danger">
@@ -90,6 +90,7 @@ function getRegData() {
 
   deleteData();
 }
+
 
 //  Delete safely
 const deleteData = () => {
@@ -108,6 +109,60 @@ const deleteData = () => {
         console.log("Delete cancelled");
       }
     };
+
+    // update coding
+    let allEditBtn = regList.querySelectorAll(".edit-btn");
+
+    allEditBtn.forEach((btn) => {
+      btn.onclick = () => {
+        let index = btn.getAttribute("index");
+        addBtn.click();
+
+        // get data from attribute
+        let dataStr = btn.getAttribute("data");
+        let data = JSON.parse(dataStr.replace(/'/g, '"'));
+
+        // fill inputs
+        allInput[0].value = data.name;
+        allInput[1].value = data.email;
+        allInput[2].value = data.mobile;
+        allInput[3].value = data.DOB;
+        allInput[4].value = data.password;
+        url = data.profile;
+
+        // buttons
+        let allBtn = regForm.querySelectorAll("button");
+        allBtn[0].disabled = false; // update
+        allBtn[1].disabled = true; // submit
+
+        // update click
+        allBtn[0].onclick = () => {
+          allRegdata[index] = {
+            name: allInput[0].value,
+            email: allInput[1].value,
+            mobile: allInput[2].value,
+            DOB: allInput[3].value,
+            password: allInput[4].value,
+            profile: url === "" ? "download.png" : url,
+          };
+
+          localStorage.setItem("allRegdata", JSON.stringify(allRegdata));
+
+          Swal.fire({
+            title: "Data Updated!",
+            text: "Successfully!",
+            icon: "success",
+          });
+
+          closeBtn.click();
+          regForm.reset();
+          getRegData();
+
+          allBtn[0].disabled = true;
+          allBtn[1].disabled = false;
+        };
+      };
+    });
   });
 };
 
@@ -150,4 +205,5 @@ const confirmDelete = () => {
     });
   });
 };
+
 
