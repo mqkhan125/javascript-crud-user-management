@@ -1,7 +1,10 @@
 let regForm = document.querySelector(".RegisterForm");
 let regList = document.querySelector(".reg-list");
 let allInput = regForm.querySelectorAll("input");
+let allBtn = regForm.querySelectorAll("button");
+let addBtn = document.querySelector(".add-btn");
 let closeBtn = document.querySelector(".btn-close");
+
 let allRegdata = [];
 let url = "";
 
@@ -62,6 +65,8 @@ function getRegData() {
 
   if (!Array.isArray(allRegdata)) return;
   allRegdata.forEach((data, index) => {
+    let dataStr = JSON.stringify(data);
+    let finalData = dataStr.replace(/"/g, "'");
     regList.innerHTML += `
       <tr>
         <td>${index + 1}</td>
@@ -82,7 +87,31 @@ function getRegData() {
       </tr>
     `;
   });
+
+  deleteData();
 }
+
+//  Delete safely
+const deleteData = () => {
+  let allDelBtn = regList.querySelectorAll(".del-btn");
+
+  // delete coding
+  allDelBtn.forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        await confirmDelete();
+        let index = btn.getAttribute("index");
+        allRegdata.splice(index, 1);
+        localStorage.setItem("allRegdata", JSON.stringify(allRegdata));
+        getRegData();
+      } catch (err) {
+        console.log("Delete cancelled");
+      }
+    };
+  });
+};
+
+getRegData();
 
 // Safe File Reader
 let fileInput = regForm.querySelector('input[type="file"]');
@@ -96,5 +125,29 @@ if (fileInput) {
   };
 }
 
-
+// delete coding
+const confirmDelete = () => {
+  return new Promise((resolve, reject) => {
+    Swal.fire({
+      title: "Are you sure?",
+      text: "Once deleted, you will not be able to recover this imaginary file!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        resolve(true);
+        Swal.fire(
+          "Deleted!",
+          "Your imaginary file has been deleted!",
+          "success"
+        );
+      } else {
+        reject(false);
+        Swal.fire("Cancelled", "Your imaginary file is safe!", "info");
+      }
+    });
+  });
+};
 
