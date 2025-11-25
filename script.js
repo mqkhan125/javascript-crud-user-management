@@ -4,6 +4,9 @@ let allInput = regForm.querySelectorAll("input");
 let allBtn = regForm.querySelectorAll("button");
 let addBtn = document.querySelector(".add-btn");
 let closeBtn = document.querySelector(".btn-close");
+let searchElem = document.querySelector(".search");
+let delAllBtn = document.querySelector(".delete-all-btn");
+let paginationBox = document.querySelector(".pagination-box");
 
 let allRegdata = [];
 let url = "";
@@ -91,6 +94,15 @@ function getRegData() {
   deleteData();
 }
 
+// delete All data coding
+delAllBtn.onclick = async() => {
+  let isConfirm = await confirmDelete();
+  if (isConfirm) {
+    allRegdata = [];
+    localStorage.removeItem("allRegdata");
+    getRegData();
+  }
+};
 
 //  Delete safely
 const deleteData = () => {
@@ -166,7 +178,7 @@ const deleteData = () => {
   });
 };
 
-getRegData();
+getRegData(0, 5);
 
 // Safe File Reader
 let fileInput = regForm.querySelector('input[type="file"]');
@@ -204,6 +216,33 @@ const confirmDelete = () => {
       }
     });
   });
+};
+
+// searching data
+searchElem.oninput = () => {
+  search();
+};
+
+// coding for search field
+const search = () => {
+  let value = searchElem.value.toLowerCase();
+  let tr = regList.querySelectorAll("tr");
+  for (let i = 0; i < tr.length; i++) {
+    let allTd = tr[i].querySelectorAll("td");
+    let name = allTd[2].innerHTML;
+    let email = allTd[3].innerHTML;
+    let mobile = allTd[5].innerHTML;
+
+    if (name.toLocaleLowerCase().indexOf(value) != -1) {
+      tr[i].style.display = "";
+    } else if (email.toLocaleLowerCase().indexOf(value) != -1) {
+      tr[i].style.display = "";
+    } else if (mobile.toLocaleLowerCase().indexOf(value) != -1) {
+      tr[i].style.display = "";
+    } else {
+      tr[i].style.display = "none";
+    }
+  }
 };
 
 
