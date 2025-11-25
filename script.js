@@ -63,11 +63,12 @@ regForm.addEventListener("submit", (e) => {
 });
 
 // add the data details
-function getRegData() {
+function getRegData(from, to) {
   regList.innerHTML = "";
 
   if (!Array.isArray(allRegdata)) return;
-  allRegdata.forEach((data, index) => {
+  let filterdData = allRegdata.slice(from, to);
+  filterdData.forEach((data, index) => {
     let dataStr = JSON.stringify(data);
     let finalData = dataStr.replace(/"/g, "'");
     regList.innerHTML += `
@@ -95,7 +96,7 @@ function getRegData() {
 }
 
 // delete All data coding
-delAllBtn.onclick = async() => {
+delAllBtn.onclick = async () => {
   let isConfirm = await confirmDelete();
   if (isConfirm) {
     allRegdata = [];
@@ -245,4 +246,32 @@ const search = () => {
   }
 };
 
+// pagination coding
+let skipData = 0,
+  loadData = 5;
+let lenght = Number(allRegdata.length / 5);
+if (lenght.toString().indexOf(".") != -1) {
+  lenght = lenght + 1;
+}
 
+for (let i = 1; i < lenght; i++) {
+  paginationBox.innerHTML += `
+    <button skip-data ="${skipData}" load-data = "${loadData}" class="btn pagination-btn">${i}</button>
+  `;
+  skipData = skipData + 5;
+  loadData = loadData + 5;
+}
+
+let allPaginationBtn = paginationBox.querySelectorAll(".pagination-btn");
+allPaginationBtn[0].classList.add("active");
+for (let btn of allPaginationBtn) {
+  btn.onclick = () => {
+    for (let el of allPaginationBtn) {
+      el.classList.remove("active");
+    }
+    btn.classList.add("active");
+    let skip = btn.getAttribute("skip-data");
+    let load = btn.getAttribute("load-data");
+    getRegData(skip, load);
+  };
+}
