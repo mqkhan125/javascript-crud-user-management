@@ -7,6 +7,8 @@ let closeBtn = document.querySelector(".btn-close");
 let searchElem = document.querySelector(".search");
 let delAllBtn = document.querySelector(".delete-all-btn");
 let paginationBox = document.querySelector(".pagination-box");
+let prevBtn = document.querySelector(".prev-btn");
+let nextBtn = document.querySelector(".next-btn");
 
 let allRegdata = [];
 let url = "";
@@ -52,7 +54,7 @@ regForm.addEventListener("submit", (e) => {
     closeBtn.click();
     regForm.reset();
     url = "";
-    getRegData();
+    getRegData(0,5);
   } else {
     Swal.fire({
       title: "Email Already Existed!",
@@ -264,8 +266,12 @@ for (let i = 1; i < lenght; i++) {
 
 let allPaginationBtn = paginationBox.querySelectorAll(".pagination-btn");
 allPaginationBtn[0].classList.add("active");
-for (let btn of allPaginationBtn) {
+
+allPaginationBtn.forEach((btn, index) => {
+
   btn.onclick = () => {
+    // function call
+    controlPrevAndNext(allPaginationBtn, index);
     for (let el of allPaginationBtn) {
       el.classList.remove("active");
     }
@@ -274,4 +280,49 @@ for (let btn of allPaginationBtn) {
     let load = btn.getAttribute("load-data");
     getRegData(skip, load);
   };
-}
+});
+
+// NextBtn coding
+nextBtn.onclick = () => {
+  let currentIndex = 0;
+  allPaginationBtn.forEach((btn, index) => {
+    if (btn.classList.contains("active")) {
+      currentIndex = index;
+    }
+  });
+  allPaginationBtn[currentIndex + 1].click();
+  controlPrevAndNext(allPaginationBtn, currentIndex + 1);
+};
+
+// PrevBtn coding
+prevBtn.onclick = () => {
+  let currentIndex = 0;
+  allPaginationBtn.forEach((btn, index) => {
+    if (btn.classList.contains("active")) {
+      currentIndex = index;
+    }
+  });
+  allPaginationBtn[currentIndex - 1].click();
+  controlPrevAndNext(allPaginationBtn, currentIndex - 1);
+};
+
+// handle the NextBtn and PrevBtn
+const controlPrevAndNext = (allPaginationBtn, currentIndex) => {
+  let length = allPaginationBtn.length - 1;
+
+  if (currentIndex == length)
+  {
+    nextBtn.disabled = true;
+    prevBtn.disabled = false;
+  }
+   else if (currentIndex > 0)
+  {
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
+  }
+   else 
+  {
+    prevBtn.disabled = true;
+    nextBtn.disabled = false;
+  }
+};
