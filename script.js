@@ -1,328 +1,342 @@
-let regForm = document.querySelector(".RegisterForm");
-let regList = document.querySelector(".reg-list");
-let allInput = regForm.querySelectorAll("input");
-let allBtn = regForm.querySelectorAll("button");
-let addBtn = document.querySelector(".add-btn");
-let closeBtn = document.querySelector(".btn-close");
-let searchElem = document.querySelector(".search");
-let delAllBtn = document.querySelector(".delete-all-btn");
-let paginationBox = document.querySelector(".pagination-box");
-let prevBtn = document.querySelector(".prev-btn");
-let nextBtn = document.querySelector(".next-btn");
+// Default Avatar URL
+const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
-let allRegdata = [];
-let url = "";
+// Load & Auto-Migrate Legacy Data (Purane data ko fix karne ke liye)
+function loadAndNormalizeData() {
+  let savedData = localStorage.getItem("allRegdata");
+  let rawUsers = [];
 
-// Safe LocalStorage loading  Prevents "forEach of null" & "find of null"
-let savedData = localStorage.getItem("allRegdata");
+  try {
+    rawUsers = savedData ? JSON.parse(savedData) : [];
+    if (!Array.isArray(rawUsers)) rawUsers = [];
+  } catch (err) {
+    rawUsers = [];
+  }
 
-try {
-  allRegdata = savedData ? JSON.parse(savedData) : [];
-  if (!Array.isArray(allRegdata)) allRegdata = [];
-} catch (err) {
-  allRegdata = [];
-  localStorage.removeItem("allRegdata");
+  // Purane records jin me 'id' nahi thi unhe 'id' assign karein aur 'DOB' ko 'dob' me convert karein
+  const normalizedUsers = rawUsers.map((user, idx) => ({
+    id: user.id ? String(user.id) : (Date.now() + idx).toString(),
+    name: user.name || "",
+    email: user.email || "",
+    mobile: user.mobile || "",
+    dob: user.dob || user.DOB || "",
+    password: user.password || "",
+    profile:
+      user.profile && !user.profile.includes("download.png")
+        ? user.profile
+        : DEFAULT_AVATAR,
+  }));
+
+  // Corrected data ko dobara LocalStorage me save kar dein
+  localStorage.setItem("allRegdata", JSON.stringify(normalizedUsers));
+  return normalizedUsers;
 }
 
-// submit form data
-regForm.addEventListener("submit", (e) => {
-  e.preventDefault();
+// State Management
+let allUsers = loadAndNormalizeData();
+let currentPage = 1;
+const rowsPerPage = 5;
+let currentProfileUrl = "";
 
-  let name = allInput[0].value.trim();
-  let email = allInput[1].value.trim();
+// DOM Elements
+const userForm = document.getElementById("userForm");
+const userTableBody = document.getElementById("userTableBody");
+const searchInput = document.getElementById("searchInput");
+const deleteAllBtn = document.getElementById("deleteAllBtn");
+const openAddModalBtn = document.getElementById("openAddModalBtn");
+const paginationContainer = document.getElementById("paginationContainer");
+const totalRecordsText = document.getElementById("totalRecordsText");
+const modalElement = document.getElementById("userModal");
+const bsModal = new bootstrap.Modal(modalElement);
 
-  let checkEmail = allRegdata.find((data) => data.email === email);
+// Form Inputs
+const userIdInput = document.getElementById("userId");
+const userNameInput = document.getElementById("userName");
+const userEmailInput = document.getElementById("userEmail");
+const userMobileInput = document.getElementById("userMobile");
+const userDOBInput = document.getElementById("userDOB");
+const userPasswordInput = document.getElementById("userPassword");
+const userProfileInput = document.getElementById("userProfile");
+const modalTitle = document.getElementById("modalTitle");
 
-  if (!checkEmail) {
-    allRegdata.push({
-      name: allInput[0].value,
-      email: allInput[1].value,
-      mobile: allInput[2].value,
-      DOB: allInput[3].value,
-      password: allInput[4].value,
-      profile: url === "" ? "images/download.png" : url,
-    });
+// Initialize Application
+document.addEventListener("DOMContentLoaded", () => {
+  render();
+});
 
-    localStorage.setItem("allRegdata", JSON.stringify(allRegdata));
-
-    Swal.fire({
-      title: "Data Inserted!",
-      text: "Successfully!",
-      icon: "success",
-    });
-
-    closeBtn.click();
-    regForm.reset();
-    url = "";
-    getRegData(0,5);
-  } else {
-    Swal.fire({
-      title: "Email Already Existed!",
-      text: "Failed!",
-      icon: "warning",
-    });
+// File Reader for Profile Image
+userProfileInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      currentProfileUrl = event.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 });
 
-// add the data details
-function getRegData(from, to) {
-  regList.innerHTML = "";
+// Main Render Function
+function render() {
+  const query = searchInput.value.trim().toLowerCase();
 
-  if (!Array.isArray(allRegdata)) return;
-  let filterdData = allRegdata.slice(from, to);
-  filterdData.forEach((data, index) => {
-    let dataStr = JSON.stringify(data);
-    let finalData = dataStr.replace(/"/g, "'");
-    regList.innerHTML += `
+  // 1. Filter Data based on Search
+  const filteredUsers = allUsers.filter((user) => {
+    return (
+      user.name.toLowerCase().includes(query) ||
+      user.email.toLowerCase().includes(query) ||
+      user.mobile.includes(query)
+    );
+  });
+
+  // 2. Pagination Calculations
+  const totalItems = filteredUsers.length;
+  const totalPages = Math.ceil(totalItems / rowsPerPage) || 1;
+
+  if (currentPage > totalPages) currentPage = totalPages;
+
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const paginatedUsers = filteredUsers.slice(
+    startIndex,
+    startIndex + rowsPerPage,
+  );
+
+  // 3. Render Rows in Table
+  userTableBody.innerHTML = "";
+
+  if (paginatedUsers.length === 0) {
+    userTableBody.innerHTML = `
       <tr>
-        <td>${index + 1}</td>
-        <td><img src="${data.profile}" width="30" alt="logo"></td>
-        <td>${data.name}</td>
-        <td>${data.email}</td>
-        <td>${data.DOB}</td>
-        <td>${data.mobile}</td>
-        <td>${data.password}</td>
-        <td>
-          <button data="${finalData}" index="${index}" class="edit-btn btn p-1 px-2 btn-primary">
-            <i class="fa fa-edit"></i>
-          </button>
-          <button index="${index}" class="del-btn btn p-1 px-2 btn-danger">
-            <i class="fa fa-trash"></i>
-          </button>
+        <td colspan="8" class="text-center py-4 text-muted">
+          <i class="fa-solid fa-folder-open fs-3 d-block mb-2"></i>
+          No record found.
         </td>
       </tr>
     `;
-  });
-
-  deleteData();
-}
-
-// delete All data coding
-delAllBtn.onclick = async () => {
-  let isConfirm = await confirmDelete();
-  if (isConfirm) {
-    allRegdata = [];
-    localStorage.removeItem("allRegdata");
-    getRegData();
-  }
-};
-
-//  Delete safely
-const deleteData = () => {
-  let allDelBtn = regList.querySelectorAll(".del-btn");
-
-  // delete coding
-  allDelBtn.forEach((btn) => {
-    btn.onclick = async () => {
-      try {
-        await confirmDelete();
-        let index = btn.getAttribute("index");
-        allRegdata.splice(index, 1);
-        localStorage.setItem("allRegdata", JSON.stringify(allRegdata));
-        getRegData();
-      } catch (err) {
-        console.log("Delete cancelled");
-      }
-    };
-
-    // update coding
-    let allEditBtn = regList.querySelectorAll(".edit-btn");
-
-    allEditBtn.forEach((btn) => {
-      btn.onclick = () => {
-        let index = btn.getAttribute("index");
-        addBtn.click();
-
-        // get data from attribute
-        let dataStr = btn.getAttribute("data");
-        let data = JSON.parse(dataStr.replace(/'/g, '"'));
-
-        // fill inputs
-        allInput[0].value = data.name;
-        allInput[1].value = data.email;
-        allInput[2].value = data.mobile;
-        allInput[3].value = data.DOB;
-        allInput[4].value = data.password;
-        url = data.profile;
-
-        // buttons
-        let allBtn = regForm.querySelectorAll("button");
-        allBtn[0].disabled = false; // update
-        allBtn[1].disabled = true; // submit
-
-        // update click
-        allBtn[0].onclick = () => {
-          allRegdata[index] = {
-            name: allInput[0].value,
-            email: allInput[1].value,
-            mobile: allInput[2].value,
-            DOB: allInput[3].value,
-            password: allInput[4].value,
-            profile: url === "" ? "download.png" : url,
-          };
-
-          localStorage.setItem("allRegdata", JSON.stringify(allRegdata));
-
-          Swal.fire({
-            title: "Data Updated!",
-            text: "Successfully!",
-            icon: "success",
-          });
-
-          closeBtn.click();
-          regForm.reset();
-          getRegData();
-
-          allBtn[0].disabled = true;
-          allBtn[1].disabled = false;
-        };
-      };
+  } else {
+    paginatedUsers.forEach((user, index) => {
+      const serialNum = startIndex + index + 1;
+      userTableBody.innerHTML += `
+        <tr>
+          <td class="ps-3 fw-semibold">${serialNum}</td>
+          <td>
+            <img src="${user.profile || DEFAULT_AVATAR}" class="avatar" alt="Avatar" />
+          </td>
+          <td class="fw-medium">${escapeHtml(user.name)}</td>
+          <td>${escapeHtml(user.email)}</td>
+          <td>${user.dob}</td>
+          <td>${escapeHtml(user.mobile)}</td>
+          <td><span class="text-muted">••••••••</span></td>
+          <td class="text-end pe-4">
+            <button onclick="editUser('${user.id}')" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button onclick="deleteUser('${user.id}')" class="btn btn-sm btn-outline-danger" title="Delete">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </td>
+        </tr>
+      `;
     });
-  });
-};
-
-getRegData(0, 5);
-
-// Safe File Reader
-let fileInput = regForm.querySelector('input[type="file"]');
-if (fileInput) {
-  fileInput.onchange = () => {
-    let fReader = new FileReader();
-    fReader.readAsDataURL(fileInput.files[0]);
-    fReader.onload = (e) => {
-      url = e.target.result;
-    };
-  };
-}
-
-// delete coding
-const confirmDelete = () => {
-  return new Promise((resolve, reject) => {
-    Swal.fire({
-      title: "Are you sure?",
-      text: "Once deleted, you will not be able to recover this imaginary file!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, delete it!",
-      cancelButtonText: "Cancel",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        resolve(true);
-        Swal.fire(
-          "Deleted!",
-          "Your imaginary file has been deleted!",
-          "success"
-        );
-      } else {
-        reject(false);
-        Swal.fire("Cancelled", "Your imaginary file is safe!", "info");
-      }
-    });
-  });
-};
-
-// searching data
-searchElem.oninput = () => {
-  search();
-};
-
-// coding for search field
-const search = () => {
-  let value = searchElem.value.toLowerCase();
-  let tr = regList.querySelectorAll("tr");
-  for (let i = 0; i < tr.length; i++) {
-    let allTd = tr[i].querySelectorAll("td");
-    let name = allTd[2].innerHTML;
-    let email = allTd[3].innerHTML;
-    let mobile = allTd[5].innerHTML;
-
-    if (name.toLocaleLowerCase().indexOf(value) != -1) {
-      tr[i].style.display = "";
-    } else if (email.toLocaleLowerCase().indexOf(value) != -1) {
-      tr[i].style.display = "";
-    } else if (mobile.toLocaleLowerCase().indexOf(value) != -1) {
-      tr[i].style.display = "";
-    } else {
-      tr[i].style.display = "none";
-    }
   }
-};
 
-// pagination coding
-let skipData = 0,
-  loadData = 5;
-let lenght = Number(allRegdata.length / 5);
-if (lenght.toString().indexOf(".") != -1) {
-  lenght = lenght + 1;
+  // 4. Update Footer Status & Pagination UI
+  totalRecordsText.innerText = `Showing ${paginatedUsers.length} of ${totalItems} entries`;
+  renderPagination(totalPages);
 }
 
-for (let i = 1; i < lenght; i++) {
-  paginationBox.innerHTML += `
-    <button skip-data ="${skipData}" load-data = "${loadData}" class="btn pagination-btn">${i}</button>
+// Render Pagination Buttons
+function renderPagination(totalPages) {
+  paginationContainer.innerHTML = "";
+
+  if (totalPages <= 1) return;
+
+  // Previous Button
+  paginationContainer.innerHTML += `
+    <li class="page-item ${currentPage === 1 ? "disabled" : ""}">
+      <button class="page-link" onclick="changePage(${currentPage - 1})"><i class="fa fa-angle-left"></i></button>
+    </li>
   `;
-  skipData = skipData + 5;
-  loadData = loadData + 5;
+
+  // Page Numbers
+  for (let i = 1; i <= totalPages; i++) {
+    paginationContainer.innerHTML += `
+      <li class="page-item ${i === currentPage ? "active" : ""}">
+        <button class="page-link" onclick="changePage(${i})">${i}</button>
+      </li>
+    `;
+  }
+
+  // Next Button
+  paginationContainer.innerHTML += `
+    <li class="page-item ${currentPage === totalPages ? "disabled" : ""}">
+      <button class="page-link" onclick="changePage(${currentPage + 1})"><i class="fa fa-angle-right"></i></button>
+    </li>
+  `;
 }
 
-let allPaginationBtn = paginationBox.querySelectorAll(".pagination-btn");
-allPaginationBtn[0].classList.add("active");
+// Change Page Action
+function changePage(page) {
+  currentPage = page;
+  render();
+}
 
-allPaginationBtn.forEach((btn, index) => {
-
-  btn.onclick = () => {
-    // function call
-    controlPrevAndNext(allPaginationBtn, index);
-    for (let el of allPaginationBtn) {
-      el.classList.remove("active");
-    }
-    btn.classList.add("active");
-    let skip = btn.getAttribute("skip-data");
-    let load = btn.getAttribute("load-data");
-    getRegData(skip, load);
-  };
+// Search Input Event
+searchInput.addEventListener("input", () => {
+  currentPage = 1;
+  render();
 });
 
-// NextBtn coding
-nextBtn.onclick = () => {
-  let currentIndex = 0;
-  allPaginationBtn.forEach((btn, index) => {
-    if (btn.classList.contains("active")) {
-      currentIndex = index;
+// Open Add User Modal
+openAddModalBtn.addEventListener("click", () => {
+  resetForm();
+  modalTitle.innerText = "Add New User";
+  bsModal.show();
+});
+
+// Handle Form Submit (Add / Edit)
+userForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+
+  const id = userIdInput.value;
+  const name = userNameInput.value.trim();
+  const email = userEmailInput.value.trim();
+  const mobile = userMobileInput.value.trim();
+  const dob = userDOBInput.value;
+  const password = userPasswordInput.value;
+
+  if (!name || !email || !mobile || !dob || (!id && !password)) {
+    Swal.fire("Warning", "Please fill in all required fields!", "warning");
+    return;
+  }
+
+  // Check Duplicate Email
+  const isDuplicate = allUsers.some((u) => u.email === email && u.id !== id);
+  if (isDuplicate) {
+    Swal.fire(
+      "Duplicate Email!",
+      "This email is already registered.",
+      "warning",
+    );
+    return;
+  }
+
+  if (id) {
+    // Update existing user
+    const userIndex = allUsers.findIndex((u) => u.id === id);
+    if (userIndex !== -1) {
+      allUsers[userIndex] = {
+        ...allUsers[userIndex],
+        name,
+        email,
+        mobile,
+        dob,
+        password: password || allUsers[userIndex].password,
+        profile: currentProfileUrl || allUsers[userIndex].profile,
+      };
+      Swal.fire("Updated!", "User details updated successfully.", "success");
+    }
+  } else {
+    // Add new user
+    const newUser = {
+      id: Date.now().toString(),
+      name,
+      email,
+      mobile,
+      dob,
+      password,
+      profile: currentProfileUrl || DEFAULT_AVATAR,
+    };
+    allUsers.push(newUser);
+    Swal.fire("Success!", "New user added successfully.", "success");
+  }
+
+  saveData();
+  bsModal.hide();
+  resetForm();
+  render();
+});
+
+// Edit User Action
+function editUser(id) {
+  const user = allUsers.find((u) => u.id === String(id));
+  if (!user) return;
+
+  userIdInput.value = user.id;
+  userNameInput.value = user.name;
+  userEmailInput.value = user.email;
+  userMobileInput.value = user.mobile;
+  userDOBInput.value = user.dob;
+  userPasswordInput.value = ""; // Blank unless editing password
+  currentProfileUrl = user.profile;
+
+  modalTitle.innerText = "Edit User Details";
+  bsModal.show();
+}
+
+// Delete Single User
+function deleteUser(id) {
+  Swal.fire({
+    title: "Are you sure?",
+    text: "This record will be permanently deleted!",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#6c757d",
+    confirmButtonText: "Yes, delete it!",
+  }).then((result) => {
+    if (result.isConfirmed) {
+      allUsers = allUsers.filter((u) => u.id !== String(id));
+      saveData();
+      render();
+      Swal.fire("Deleted!", "User has been deleted.", "success");
     }
   });
-  allPaginationBtn[currentIndex + 1].click();
-  controlPrevAndNext(allPaginationBtn, currentIndex + 1);
-};
+}
 
-// PrevBtn coding
-prevBtn.onclick = () => {
-  let currentIndex = 0;
-  allPaginationBtn.forEach((btn, index) => {
-    if (btn.classList.contains("active")) {
-      currentIndex = index;
+// Delete All Users
+deleteAllBtn.addEventListener("click", () => {
+  if (allUsers.length === 0) {
+    Swal.fire("Info", "No users available to delete.", "info");
+    return;
+  }
+
+  Swal.fire({
+    title: "Delete All Users?",
+    text: "This action cannot be undone!",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#6c757d",
+    confirmButtonText: "Yes, delete all!",
+  }).then((result) => {
+    if (result.isConfirmed) {
+      allUsers = [];
+      saveData();
+      render();
+      Swal.fire("Cleared!", "All records have been cleared.", "success");
     }
   });
-  allPaginationBtn[currentIndex - 1].click();
-  controlPrevAndNext(allPaginationBtn, currentIndex - 1);
-};
+});
 
-// handle the NextBtn and PrevBtn
-const controlPrevAndNext = (allPaginationBtn, currentIndex) => {
-  let length = allPaginationBtn.length - 1;
+// Save Data to LocalStorage
+function saveData() {
+  localStorage.setItem("allRegdata", JSON.stringify(allUsers));
+}
 
-  if (currentIndex == length)
-  {
-    nextBtn.disabled = true;
-    prevBtn.disabled = false;
-  }
-   else if (currentIndex > 0)
-  {
-    prevBtn.disabled = false;
-    nextBtn.disabled = false;
-  }
-   else 
-  {
-    prevBtn.disabled = true;
-    nextBtn.disabled = false;
-  }
-};
+// Reset Form State
+function resetForm() {
+  userForm.reset();
+  userIdInput.value = "";
+  currentProfileUrl = "";
+}
+
+// Security: Prevent XSS
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
